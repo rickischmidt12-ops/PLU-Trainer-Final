@@ -79,6 +79,8 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Build APK
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: bash
         run: |
           set -e
