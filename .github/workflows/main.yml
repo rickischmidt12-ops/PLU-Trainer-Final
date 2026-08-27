@@ -27,9 +27,6 @@ jobs:
 
           ZIP_FILE="plu-trainer-1.zip neu.zip"
 
-          echo "Vorhandene Dateien:"
-          ls -la
-
           if [ ! -f "$ZIP_FILE" ]; then
             echo "FEHLER: ZIP-Datei wurde nicht gefunden."
             exit 1
@@ -38,8 +35,6 @@ jobs:
           rm -rf app-source
           mkdir -p app-source
           unzip -q "$ZIP_FILE" -d app-source
-
-          echo "ZIP erfolgreich entpackt."
 
       - name: Find Android project
         id: project
@@ -51,16 +46,32 @@ jobs:
 
           if [ -z "$SETTINGS" ]; then
             echo "FEHLER: Kein Android/Gradle-Projekt gefunden."
-            find app-source -maxdepth 5 -type f | head -100
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
-
-          echo "Gradle-Projekt gefunden:"
-          echo "$PROJECT_DIR"
-
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Create debug keystore
+        shell: bash
+        run: |
+          set -e
+
+          PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
+
+          keytool \
+            -genkeypair \
+            -v \
+            -keystore "$PROJECT_DIR/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          echo "Debug-Keystore erstellt."
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -90,9 +101,6 @@ jobs:
             echo "FEHLER: Build war fertig, aber keine APK wurde gefunden."
             exit 1
           fi
-
-          echo "APK gefunden:"
-          echo "$APK_FILE"
 
           cp "$APK_FILE" apk-output/PLU-Trainer.apk
 
