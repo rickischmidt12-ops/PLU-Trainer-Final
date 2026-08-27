@@ -14,20 +14,76 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Unzip Android project
+        shell: bash
         run: |
-          mkdir app-source
-          unzip "plu-trainer-1.zip neu.zip" -d app-source
+          set -e
+          ZIP_FILE="plu-trainer-1.zip neu.zip"
 
-      - name: Find Gradle project and build APK
+          echo "Vorhandene Dateien:"
+          ls -la
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "FEHLER: ZIP-Datei wurde nicht gefunden."
+            exit 1
+          fi
+
+          rm -rf app-source
+          mkdir -p app-source
+          unzip -q "$ZIP_FILE" -d app-source
+
+          echo "ZIP erfolgreich entpackt."
+
+      - name: Find and build Android project
+        shell: bash
         run: |
-          GRADLEW=$(find app-source -name gradlew -type f | head -n 1)
+          set -e
+
+          GRADLEW=$(find app-source -type f -name "gradlew" -print -quit)
 
           if [ -z "$GRADLEW" ]; then
-            echo "FEHLER: gradlew wurde
+            echo "FEHLER: gradlew wurde im entpackten Projekt nicht gefunden."
+            echo "Gefundene Dateien:"
+            find app-source -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+
+          echo "Gradle-Projekt gefunden:"
+          echo "$PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew --no-daemon clean assembleDebug
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          set -e
+          mkdir -p apk-output
+
+          APK_FILE=$(find app-source -type f -name "*.apk" -print -quit)
+
+          if [ -z "$APK_FILE" ]; then
+            echo "FEHLER: Build war fertig, aber keine APK wurde gefunden."
+            exit 1
+          fi
+
+          echo "APK gefunden:"
+          echo "$APK_FILE"
+
+          cp "$APK_FILE" apk-output/PLU-Trainer.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PLU-Trainer-APK
+          path: apk-output/PLU-Trainer.apk
+          if-no-files-found: error
