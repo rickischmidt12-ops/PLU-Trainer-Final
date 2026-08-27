@@ -24,6 +24,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           ZIP_FILE="plu-trainer-1.zip neu.zip"
 
           echo "Vorhandene Dateien:"
@@ -40,33 +41,47 @@ jobs:
 
           echo "ZIP erfolgreich entpackt."
 
-      - name: Find and build Android project
+      - name: Find Android project
+        id: project
         shell: bash
         run: |
           set -e
 
-          GRADLEW=$(find app-source -type f -name "gradlew" -print -quit)
+          SETTINGS=$(find app-source -type f \( -name "settings.gradle.kts" -o -name "settings.gradle" \) -print -quit)
 
-          if [ -z "$GRADLEW" ]; then
-            echo "FEHLER: gradlew wurde im entpackten Projekt nicht gefunden."
-            echo "Gefundene Dateien:"
-            find app-source -maxdepth 4 -type f | head -100
+          if [ -z "$SETTINGS" ]; then
+            echo "FEHLER: Kein Android/Gradle-Projekt gefunden."
+            find app-source -maxdepth 5 -type f | head -100
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$GRADLEW")
+          PROJECT_DIR=$(dirname "$SETTINGS")
 
           echo "Gradle-Projekt gefunden:"
           echo "$PROJECT_DIR"
 
-          cd "$PROJECT_DIR"
-          chmod +x gradlew
-          ./gradlew --no-daemon clean assembleDebug
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          echo "Starte Android-Build..."
+          gradle --no-daemon clean assembleDebug
 
       - name: Collect APK
         shell: bash
         run: |
           set -e
+
           mkdir -p apk-output
 
           APK_FILE=$(find app-source -type f -name "*.apk" -print -quit)
