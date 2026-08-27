@@ -1,0 +1,33 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Unzip Android project
+        run: |
+          mkdir app-source
+          unzip "plu-trainer-1.zip neu.zip" -d app-source
+
+      - name: Find Gradle project and build APK
+        run: |
+          GRADLEW=$(find app-source -name gradlew -type f | head -n 1)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "FEHLER: gradlew wurde
