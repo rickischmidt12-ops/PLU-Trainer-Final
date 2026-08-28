@@ -52,6 +52,25 @@ jobs:
           PROJECT_DIR=$(dirname "$SETTINGS")
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
+      - name: Add Gemini API key
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -e
+
+          PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
+
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "FEHLER: GEMINI_API_KEY ist nicht als GitHub Secret vorhanden."
+            exit 1
+          fi
+
+          printf "sdk.dir=%s\n" "$ANDROID_HOME" > "$PROJECT_DIR/local.properties"
+          printf "GEMINI_API_KEY=%s\n" "$GEMINI_API_KEY" >> "$PROJECT_DIR/local.properties"
+
+          echo "Gemini API-Key wurde für den Android-Build bereitgestellt."
+
       - name: Create debug keystore
         shell: bash
         run: |
@@ -79,9 +98,10 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Build APK
+        shell: bash
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        shell: bash
+          ORG_GRADLE_PROJECT_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -e
 
