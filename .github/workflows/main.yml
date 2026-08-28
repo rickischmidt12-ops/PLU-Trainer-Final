@@ -74,6 +74,32 @@ jobs:
 
           echo "Gemini API-Key wurde in .env für den Android-Build bereitgestellt."
 
+      - name: Update Gemini model
+        shell: bash
+        run: |
+          set -e
+
+          PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
+
+          echo "Suche nach alten Gemini-Modellnamen..."
+
+          grep -RIl \
+            --exclude-dir=.gradle \
+            --exclude-dir=build \
+            --exclude='*.apk' \
+            --exclude='*.jar' \
+            -e 'gemini-2.5-flash' \
+            -e 'models/gemini-2.5-flash' \
+            "$PROJECT_DIR" | while IFS= read -r FILE; do
+              echo "Ändere Modell in: $FILE"
+              sed -i \
+                -e 's/models\/gemini-2\.5-flash/gemini-3.6-flash/g' \
+                -e 's/gemini-2\.5-flash/gemini-3.6-flash/g' \
+                "$FILE"
+          done
+
+          echo "Gemini-Modell wurde auf gemini-3.6-flash aktualisiert."
+
       - name: Create debug keystore
         shell: bash
         run: |
