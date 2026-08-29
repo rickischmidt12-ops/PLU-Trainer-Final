@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Release AAB
 
 on:
   workflow_dispatch:
@@ -56,64 +56,75 @@ jobs:
 
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Create debug keystore
+      - name: Restore release keystore
         shell: bash
+        env:
+          PLU_KEYSTORE_BASE64: ${{ secrets.PLU_KEYSTORE_BASE64 }}
         run: |
           set -e
 
           PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
 
-          keytool \
-            -genkeypair \
-            -v \
-            -keystore "$PROJECT_DIR/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ -z "$PLU_KEYSTORE_BASE64" ]; then
+            echo "FEHLER: PLU_KEYSTORE_BASE64 fehlt."
+            exit 1
+          fi
 
-          echo "Debug-Keystore erstellt."
+          echo "$PLU_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/plu-upload-key.jks"
+
+          echo "Release-Keystore wurde bereitgestellt."
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
 
-      - name: Build APK
+      - name: Build signed release AAB
         shell: bash
+        env:
+          KEYSTORE_PATH: ${{ steps.project.outputs.project_dir }}/plu-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.PLU_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.PLU_KEY_PASSWORD }}
         run: |
           set -e
 
           cd "${{ steps.project.outputs.project_dir }}"
 
-          echo "Starte Android-Build..."
-          gradle --no-daemon clean assembleDebug
+          if [ -z "$STORE_PASSWORD" ]; then
+            echo "FEHLER: PLU_STORE_PASSWORD fehlt."
+            exit 1
+          fi
 
-      - name: Collect APK
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "FEHLER: PLU_KEY_PASSWORD fehlt."
+            exit 1
+          fi
+
+          echo "Starte signierten Release-Build..."
+          gradle --no-daemon clean bundleRelease
+
+      - name: Collect AAB
         shell: bash
         run: |
           set -e
 
-          mkdir -p apk-output
+          mkdir -p aab-output
 
-          APK_FILE=$(find app-source -type f -name "*.apk" -print -quit)
+          AAB_FILE=$(find app-source -type f -name "*.aab" -print -quit)
 
-          if [ -z "$APK_FILE" ]; then
-            echo "FEHLER: Build war fertig, aber keine APK wurde gefunden."
+          if [ -z "$AAB_FILE" ]; then
+            echo "FEHLER: Build war fertig, aber keine AAB wurde gefunden."
             exit 1
           fi
 
-          echo "APK gefunden:"
-          echo "$APK_FILE"
+          echo "AAB gefunden:"
+          echo "$AAB_FILE"
 
-          cp "$APK_FILE" apk-output/PLU-Trainer.apk
+          cp "$AAB_FILE" aab-output/PLU-v1.0.aab
 
-      - name: Upload APK
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: PLU-Trainer-APK
-          path: apk-output/PLU-Trainer.apk
+          name: PLU-PlayStore-AAB
+          path: aab-output/PLU-v1.0.aab
           if-no-files-found: error
