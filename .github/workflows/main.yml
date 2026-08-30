@@ -70,7 +70,7 @@ jobs:
             exit 1
           fi
 
-          echo "$PLU_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/plu-upload-key.jks"
+          echo "$PLU_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/app/plu-upload-key.jks"
 
           echo "Release-Keystore wurde bereitgestellt."
 
@@ -82,7 +82,7 @@ jobs:
       - name: Build signed release AAB
         shell: bash
         env:
-          KEYSTORE_PATH: ${{ steps.project.outputs.project_dir }}/plu-upload-key.jks
+          KEYSTORE_PATH: ${{ steps.project.outputs.project_dir }}/app/plu-upload-key.jks
           STORE_PASSWORD: ${{ secrets.PLU_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.PLU_KEY_PASSWORD }}
         run: |
